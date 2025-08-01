@@ -368,7 +368,8 @@
             const baseSegment1 = b * Math.cos(angleA);
             const baseSegment2 = c - baseSegment1;
 
-            if (isNaN(height) || height <= 0) {
+            // This is the key check: ensure the altitude falls on the base
+            if (height <= 0 || baseSegment1 <= 0 || baseSegment2 <= 0) {
                 return null;
             }
 
@@ -405,33 +406,33 @@
         }
 
         function findBestSplitTrianglePoints(a, b, c) {
-            const splits = [];
+            const validSplits = [];
             const splitA = getSplitTrianglePoints(b, c, a);
             if (splitA) {
                 const score = Math.abs(splitA.calculatedLengths.baseSegment1 - splitA.calculatedLengths.baseSegment2);
-                splits.push({ points: splitA, score });
+                validSplits.push({ points: splitA, score });
             }
 
             const splitB = getSplitTrianglePoints(a, c, b);
             if (splitB) {
                 const score = Math.abs(splitB.calculatedLengths.baseSegment1 - splitB.calculatedLengths.baseSegment2);
-                splits.push({ points: splitB, score });
+                validSplits.push({ points: splitB, score });
             }
 
             const splitC = getSplitTrianglePoints(a, b, c);
             if (splitC) {
                 const score = Math.abs(splitC.calculatedLengths.baseSegment1 - splitC.calculatedLengths.baseSegment2);
-                splits.push({ points: splitC, score });
+                validSplits.push({ points: splitC, score });
             }
 
-            if (splits.length === 0) {
+            if (validSplits.length === 0) {
                 return null;
             }
 
-            let bestSplit = splits[0];
-            for (let i = 1; i < splits.length; i++) {
-                if (splits[i].score < bestSplit.score) {
-                    bestSplit = splits[i];
+            let bestSplit = validSplits[0];
+            for (let i = 1; i < validSplits.length; i++) {
+                if (validSplits[i].score < bestSplit.score) {
+                    bestSplit = validSplits[i];
                 }
             }
             return bestSplit.points;
@@ -514,6 +515,7 @@
                 const { altitude, baseSegment1, baseSegment2 } = points.calculatedLengths;
 
                 const [sideA, sideB, sideC] = Object.values(sides);
+
 
                 tableHTML += `<tr><th>Common Side</th><td>${formatNumber(altitude)}</td></tr>`;
                 tableHTML += `<tr><th>Left Base</th><td>${formatNumber(baseSegment1)}</td></tr>`;
