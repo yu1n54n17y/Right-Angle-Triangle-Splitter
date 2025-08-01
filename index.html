@@ -65,6 +65,12 @@
             user-select: none;
             z-index: 100;
         }
+        .warning-message {
+            color: #fab387;
+            font-weight: bold;
+            margin-top: 1em;
+            height: 1.5em; /* Reserve space to prevent layout shift */
+        }
     </style>
 </head>
 <body>
@@ -74,6 +80,7 @@
         Side b: <input type="number" id="sideB" value="5" oninput="queueTriangleAnimation()">
         Side c: <input type="number" id="sideC" value="6" oninput="queueTriangleAnimation()">
     </p>
+    <div id="warningMessage" class="warning-message"></div>
     <div style="position: relative; width: 900px; height: 900px;">
         <canvas id="canvas" width="1800" height="1800"></canvas>
         <div class="watermark">Yu-1N_54N_17Y (Yukio77)</div>
@@ -95,6 +102,7 @@
         
         const debounceDelay = 100;
         let debounceTimeoutId = null;
+        const warningElement = document.getElementById('warningMessage');
 
         // Easing function for smooth animation
         function easeInOut(t) {
@@ -300,7 +308,12 @@
                 const b = parseFloat(document.getElementById('sideB').value);
                 const c = parseFloat(document.getElementById('sideC').value);
 
-                if (isNaN(a) || isNaN(b) || isNaN(c) || a <= 0 || b <= 0 || c <= 0) {
+                // Combined validation logic
+                const isInvalid = isNaN(a) || isNaN(b) || isNaN(c) || a <= 0 || b <= 0 || c <= 0;
+                const isTooSmall = a < 0.2 || b < 0.2 || c < 0.2;
+                
+                if (isInvalid) {
+                    warningElement.textContent = "";
                     if (animationFrameId) {
                         cancelAnimationFrame(animationFrameId);
                         animationFrameId = null;
@@ -308,6 +321,12 @@
                     currentPoints = null;
                     renderTriangle(null);
                     return;
+                }
+                
+                if (isTooSmall) {
+                    warningElement.textContent = "One or more of the sides is smaller than 0.2. The triangle is not possible to make in Gearworks.";
+                } else {
+                    warningElement.textContent = "";
                 }
 
                 let newTargetPoints = getRightTrianglePoints(a, b, c);
