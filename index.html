@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Triangle Splitter</title>
+  <style>
+    body {
+      background: #202020;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 2em;
+    }
+    canvas {
+      background: #111;
+      border: 1px solid #444;
+      margin-top: 1em;
+    }
+    input {
+      width: 60px;
+      margin: 0 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Triangle Side Splitter</h1>
+  <p>
+    Side a: <input type="number" id="sideA" value="5"> 
+    Side b: <input type="number" id="sideB" value="5"> 
+    Side c: <input type="number" id="sideC" value="6">
+    <button onclick="splitTriangle()">Split</button>
+  </p>
+  <canvas id="canvas" width="600" height="600"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    function drawPoint(x, y, label) {
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, 2 * Math.PI);
+      ctx.fillStyle = 'white';
+      ctx.fill();
+      ctx.fillText(label, x + 6, y - 6);
+    }
+
+    function drawLine(p1, p2, color = 'skyblue') {
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    function splitTriangle() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.font = '14px sans-serif';
+
+      let a = parseFloat(document.getElementById('sideA').value);
+      let b = parseFloat(document.getElementById('sideB').value);
+      let c = parseFloat(document.getElementById('sideC').value);
+
+      if (a + b <= c || a + c <= b || b + c <= a) {
+        ctx.fillStyle = 'red';
+        ctx.fillText('Invalid triangle', 250, 300);
+        return;
+      }
+
+      // Calculate triangle points
+      const A = { x: 150, y: 400 };
+      const B = { x: 450, y: 400 };
+      const AB = { x: B.x - A.x, y: B.y - A.y };
+      const AB_len = Math.hypot(AB.x, AB.y);
+      const cosC = (b*b + c*c - a*a) / (2 * b * c);
+      const angle = Math.acos((b*b + c*c - a*a) / (2 * b * c));
+
+      const C = {
+        x: A.x + (b * Math.cos(angle)),
+        y: A.y - (b * Math.sin(angle))
+      };
+
+      // Drop perpendicular from C to AB
+      const AB_unit = { x: AB.x / AB_len, y: AB.y / AB_len };
+      const AC = { x: C.x - A.x, y: C.y - A.y };
+      const proj = AC.x * AB_unit.x + AC.y * AB_unit.y;
+
+      if (proj < 0 || proj > AB_len) {
+        ctx.fillStyle = 'orange';
+        ctx.fillText('Split falls outside base', 220, 300);
+        return;
+      }
+
+      const D = {
+        x: A.x + proj * AB_unit.x,
+        y: A.y + proj * AB_unit.y
+      };
+
+      // Draw triangles
+      drawLine(A, D, '#3399ff');
+      drawLine(D, C, '#3399ff');
+      drawLine(C, A, '#3399ff');
+
+      drawLine(D, B, '#33cc99');
+      drawLine(C, D, '#33cc99');
+      drawLine(C, B, '#33cc99');
+
+      // Shared side in red
+      drawLine(C, D, '#ff3333');
+
+      drawPoint(A.x, A.y, 'A');
+      drawPoint(B.x, B.y, 'B');
+      drawPoint(C.x, C.y, 'C');
+      drawPoint(D.x, D.y, 'D');
+    }
+  </script>
+</body>
+</html>
