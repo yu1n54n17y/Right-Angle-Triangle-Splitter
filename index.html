@@ -4,19 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Triangle Splitter</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
             background: #1e1e2e;
             color: #cdd6f4;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Roboto', sans-serif;
             text-align: center;
             padding: 2em;
             margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
             min-height: 100vh;
         }
         h1 {
@@ -24,19 +20,65 @@
             font-weight: 700;
             margin-bottom: 0.5em;
         }
+        h3 {
+            color: #b4befe;
+            font-weight: 400;
+            margin-top: 0;
+        }
         p {
             font-size: 1.1em;
             color: #a6adc8;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 2em;
+            flex-wrap: wrap;
         }
         canvas {
             background: #11111b;
             border: 2px solid #585b70;
             border-radius: 8px;
-            margin-top: 1em;
             width: 900px;
             height: 900px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
             position: relative;
+        }
+        .results-panel {
+            background: #11111b;
+            border: 2px solid #585b70;
+            border-radius: 8px;
+            padding: 1.5em;
+            width: 300px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+        }
+        .results-panel h2 {
+            color: #f38ba8;
+            margin-top: 0;
+            font-weight: 700;
+        }
+        .results-panel table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1em;
+        }
+        .results-panel th, .results-panel td {
+            padding: 0.5em 0;
+            border-bottom: 1px solid #585b70;
+            color: #cdd6f4;
+        }
+        .results-panel th {
+            text-align: left;
+            color: #bac2de;
+            font-weight: 700;
+        }
+        .results-panel td {
+            text-align: right;
+            font-family: 'Courier New', Courier, monospace;
         }
         input {
             width: 80px;
@@ -82,9 +124,15 @@
         Side c: <input type="number" id="sideC" value="6" oninput="queueTriangleAnimation()">
     </p>
     <div id="warningMessage" class="warning-message"></div>
-    <div style="position: relative; width: 900px; height: 900px;">
-        <canvas id="canvas" width="1800" height="1800"></canvas>
-        <div class="watermark">Yu-1N_54N_17Y (Yukio77)</div>
+    <div class="container">
+        <div style="position: relative;">
+            <canvas id="canvas" width="1800" height="1800"></canvas>
+            <div class="watermark">Yu-1N_54N_17Y (Yukio77)</div>
+        </div>
+        <div id="resultsPanel" class="results-panel">
+            <h2>Calculated Values</h2>
+            <div id="valuesTable"></div>
+        </div>
     </div>
 
     <script>
@@ -104,6 +152,12 @@
         const debounceDelay = 100;
         let debounceTimeoutId = null;
         const warningElement = document.getElementById('warningMessage');
+        const valuesTableElement = document.getElementById('valuesTable');
+
+        // Helper function to format a number, removing redundant trailing zeros
+        function formatNumber(num) {
+            return parseFloat(num.toFixed(3));
+        }
 
         // Easing function for smooth animation
         function easeInOut(t) {
@@ -111,14 +165,6 @@
         }
 
         // --- Drawing functions ---
-        function drawPoint(x, y, label) {
-            ctx.beginPath();
-            ctx.arc(x, y, 4 * renderScale, 0, 2 * Math.PI);
-            ctx.fillStyle = '#f9e2af';
-            ctx.fill();
-            ctx.fillText(label, x + 6 * renderScale, y - 6 * renderScale);
-        }
-
         function drawLine(p1, p2, color, label = null) {
             if (!p1 || !p2) return;
             ctx.beginPath();
@@ -150,10 +196,10 @@
             const labelX = segment.x + normalX * textOffset;
             const labelY = segment.y + normalY * textOffset;
 
-            ctx.font = `bold ${16 * renderScale}px 'Inter', sans-serif`;
+            ctx.font = `bold ${16 * renderScale}px 'Roboto', sans-serif`;
 
             // Draw the background outline for better visibility
-            ctx.lineWidth = 6 * renderScale;
+            ctx.lineWidth = 10 * renderScale; // Increased outline for visibility
             ctx.strokeStyle = '#1e1e2e';
             ctx.strokeText(segment.label, labelX, labelY);
 
@@ -206,6 +252,7 @@
             const scaleY = (canvas.height - margin * 2) / leg1;
             const scale = Math.min(scaleX, scaleY);
 
+            // Standard orientation: base at the bottom, right angle at the bottom left
             const A = { x: margin, y: canvas.height - margin };
             const B = { x: A.x + leg2 * scale, y: A.y };
             const C = { x: A.x, y: A.y - leg1 * scale };
@@ -214,18 +261,23 @@
         }
 
         function getSplitTrianglePoints(a, b, c) {
+            // Here c is the base, a and b are the other two sides.
+            // Using the Law of Cosines to find the angle A to calculate the altitude and base segments.
             const cosAngleA = (b * b + c * c - a * a) / (2 * b * c);
             const angleA = Math.acos(Math.max(-1, Math.min(1, cosAngleA)));
             const sinAngleA = Math.sin(angleA);
             const height = b * sinAngleA;
 
-            if (isNaN(height) || height === 0) return null;
+            if (isNaN(height) || height === 0) {
+                return null;
+            }
 
             const margin = 50 * renderScale;
             const scaleX = (canvas.width - margin * 2) / c;
             const scaleY = (canvas.height - margin * 2) / height;
             const scale = Math.min(scaleX, scaleY);
 
+            // Standard orientation: base at the bottom
             const A = { x: margin, y: canvas.height - margin };
             const B = { x: A.x + c * scale, y: A.y };
             const C = {
@@ -238,20 +290,71 @@
                 y: A.y
             };
 
+            const altitude = height;
+            const baseSegment1 = b * Math.cos(angleA);
+            const baseSegment2 = c - baseSegment1;
+
             if (D.x < A.x || D.x > B.x) {
                 return null;
             }
             
-            return { A, B, C, D, scale, isRightTriangle: false, sides: { a, b, c } };
+            return {
+                A, B, C, D, scale, isRightTriangle: false, sides: { a, b, c },
+                calculatedLengths: {
+                    altitude,
+                    baseSegment1,
+                    baseSegment2
+                }
+            };
+        }
+
+        function findBestSplitTrianglePoints(a, b, c) {
+            const splits = [];
+
+            // Try splitting with side a as the base
+            const splitA = getSplitTrianglePoints(b, c, a);
+            if (splitA) {
+                const score = Math.abs(splitA.calculatedLengths.baseSegment1 - splitA.calculatedLengths.baseSegment2);
+                splits.push({ points: splitA, score });
+            }
+
+            // Try splitting with side b as the base
+            const splitB = getSplitTrianglePoints(a, c, b);
+            if (splitB) {
+                const score = Math.abs(splitB.calculatedLengths.baseSegment1 - splitB.calculatedLengths.baseSegment2);
+                splits.push({ points: splitB, score });
+            }
+
+            // Try splitting with side c as the base
+            const splitC = getSplitTrianglePoints(a, b, c);
+            if (splitC) {
+                const score = Math.abs(splitC.calculatedLengths.baseSegment1 - splitC.calculatedLengths.baseSegment2);
+                splits.push({ points: splitC, score });
+            }
+
+            if (splits.length === 0) {
+                return null;
+            }
+
+            // Find the split with the lowest score (most symmetrical)
+            let bestSplit = splits[0];
+            for (let i = 1; i < splits.length; i++) {
+                if (splits[i].score < bestSplit.score) {
+                    bestSplit = splits[i];
+                }
+            }
+            return bestSplit.points;
         }
 
         // The main rendering function
         function renderTriangle(points, hoverLabel = null) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             hoverSegments = [];
-            ctx.font = `${16 * renderScale}px 'Inter', sans-serif`;
+            ctx.font = `${16 * renderScale}px 'Roboto', sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
+
+            updateResultsPanel(points);
 
             if (!points) {
                 ctx.fillStyle = '#fab387';
@@ -265,40 +368,59 @@
                 ctx.fillStyle = '#a6e3a1';
                 ctx.fillText('Already a right triangle', 300 * renderScale, 150 * renderScale);
                 // Label the sides of the right triangle
-                drawLine(A, C, '#cba6f7', (distance(A, C) / scale).toFixed(3));
-                drawLine(C, B, '#f5e0dc', (distance(C, B) / scale).toFixed(3));
-                drawLine(A, B, '#89b4fa', (distance(A, B) / scale).toFixed(3));
+                drawLine(A, C, '#cba6f7', formatNumber(distance(A, C) / scale));
+                drawLine(C, B, '#f5e0dc', formatNumber(distance(C, B) / scale));
+                drawLine(A, B, '#89b4fa', formatNumber(distance(A, B) / scale));
             } else {
-                const CD_len = distance(D, C) / scale;
-                const AD_len = distance(A, D) / scale;
-                const DB_len = distance(D, B) / scale;
-                
+                const { altitude, baseSegment1, baseSegment2 } = points.calculatedLengths;
+
                 // Draw all lines of the smaller triangles and label them
-                drawLine(A, C, '#cba6f7', (distance(A, C) / scale).toFixed(3));
-                drawLine(C, B, '#f5e0dc', (distance(C, B) / scale).toFixed(3));
-                drawLine(C, D, '#a6e3a1', CD_len.toFixed(3));
+                drawLine(A, C, '#cba6f7', formatNumber(distance(A, C) / scale));
+                drawLine(C, B, '#f5e0dc', formatNumber(distance(C, B) / scale));
+                drawLine(C, D, '#a6e3a1', formatNumber(altitude));
                 
                 // Only label the split segments if point D is on the base
                 if (D.x >= A.x && D.x <= B.x) {
-                    drawLine(A, D, '#89b4fa', AD_len.toFixed(3));
-                    drawLine(D, B, '#fab387', DB_len.toFixed(3));
+                    drawLine(A, D, '#89b4fa', formatNumber(baseSegment1));
+                    drawLine(D, B, '#fab387', formatNumber(baseSegment2));
                 } else {
-                    drawLine(A, B, '#89b4fa', (distance(A, B) / scale).toFixed(3));
+                    drawLine(A, B, '#89b4fa', formatNumber(distance(A, B) / scale));
                 }
             }
-
-            // Draw points after lines to make them visible
-            drawPoint(A.x, A.y, 'A');
-            drawPoint(B.x, B.y, 'B');
-            drawPoint(C.x, C.y, 'C');
-            if (D) {
-                drawPoint(D.x, D.y, 'D');
-            }
-
             // Draw hover label if provided
             if (hoverLabel) {
                 drawHoverLabel(hoverLabel);
             }
+        }
+        
+        // --- Update Results Panel ---
+        function updateResultsPanel(points) {
+            if (!points) {
+                valuesTableElement.innerHTML = '';
+                return;
+            }
+
+            const { scale, isRightTriangle, sides } = points;
+            let tableHTML = '<table><tbody>';
+
+            // Update values table
+            if (isRightTriangle) {
+                tableHTML += `<tr><th>Side a</th><td>${formatNumber(sides.a)}</td></tr>`;
+                tableHTML += `<tr><th>Side b</th><td>${formatNumber(sides.b)}</td></tr>`;
+                tableHTML += `<tr><th>Side c</th><td>${formatNumber(sides.c)}</td></tr>`;
+            } else {
+                const { altitude, baseSegment1, baseSegment2 } = points.calculatedLengths;
+                
+                // We use the original sides for the display as they're the inputs
+                const [sideA, sideB, sideC] = Object.values(sides);
+                
+                tableHTML += `<tr><th>Left Base 1</th><td>${formatNumber(baseSegment1)}</td></tr>`;
+                tableHTML += `<tr><th>Common Side</th><td>${formatNumber(altitude)}</td></tr>`;
+                tableHTML += `<tr><th>Right Base 2</th><td>${formatNumber(baseSegment2)}</td></tr>`;
+            }
+            
+            tableHTML += '</tbody></table>';
+            valuesTableElement.innerHTML = tableHTML;
         }
 
         // --- Animation functions ---
@@ -311,7 +433,7 @@
 
                 // Combined validation logic
                 const isInvalid = isNaN(a) || isNaN(b) || isNaN(c) || a <= 0 || b <= 0 || c <= 0;
-                const isTooSmall = a < 0.2 || b < 0.2 || c < 0.2;
+                let isTooSmall = a < 0.2 || b < 0.2 || c < 0.2;
                 
                 if (isInvalid) {
                     warningElement.textContent = "";
@@ -323,16 +445,22 @@
                     renderTriangle(null);
                     return;
                 }
-                
-                if (isTooSmall) {
-                    warningElement.textContent = "One or more of the sides is smaller than 0.2. The triangle is not possible to make in Gearworks.";
-                } else {
-                    warningElement.textContent = "";
-                }
 
                 let newTargetPoints = getRightTrianglePoints(a, b, c);
                 if (!newTargetPoints) {
-                    newTargetPoints = getSplitTrianglePoints(a, b, c) || getSplitTrianglePoints(b, c, a) || getSplitTrianglePoints(c, a, b);
+                    newTargetPoints = findBestSplitTrianglePoints(a, b, c);
+                    if (newTargetPoints && newTargetPoints.calculatedLengths) {
+                        const { altitude, baseSegment1, baseSegment2 } = newTargetPoints.calculatedLengths;
+                        if (altitude < 0.2 || baseSegment1 < 0.2 || baseSegment2 < 0.2) {
+                            isTooSmall = true;
+                        }
+                    }
+                }
+                
+                if (isTooSmall) {
+                    warningElement.textContent = "One or more of the sides or calculated segments is smaller than 0.2. The triangle is not possible to make in Gearworks.";
+                } else {
+                    warningElement.textContent = "";
                 }
 
                 if (!newTargetPoints) {
@@ -372,7 +500,8 @@
                         A: interpolatedA, B: interpolatedB, C: interpolatedC, D: interpolatedD,
                         scale: currentPoints.scale + (targetPoints.scale - currentPoints.scale) * easedProgress,
                         isRightTriangle: currentPoints.isRightTriangle,
-                        sides: currentPoints.sides
+                        sides: currentPoints.sides,
+                        calculatedLengths: currentPoints.calculatedLengths
                     };
                 }
 
@@ -432,6 +561,8 @@
             } else if (currentPoints.D) {
                 interpolatedPoints.D = currentPoints.D;
             }
+            
+            interpolatedPoints.calculatedLengths = targetPoints.calculatedLengths;
 
             renderTriangle(interpolatedPoints, hoverSegmentToDraw);
 
@@ -439,7 +570,7 @@
                 animationFrameId = requestAnimationFrame(animateTriangle);
             } else {
                 animationFrameId = null;
-                currentPoints = targetPoints;
+                currentPoints = interpolatedPoints;
                 renderTriangle(currentPoints, hoverSegmentToDraw);
             }
         }
